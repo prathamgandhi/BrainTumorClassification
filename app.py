@@ -1,41 +1,99 @@
-#import libraries
+# some utilities
+import os
 import numpy as np
-from flask import Flask, request, jsonify, render_template
-from sklearn.preprocessing import PolynomialFeatures
-import pickle
+from util import base64_to_pil
 
-#Initialize the flask App
+# Flask
+from flask import Flask, redirect, url_for, request, render_template, Response, jsonify, redirect
+
+#tensorflow
+import tensorflow as tf
+from tensorflow.keras.applications.imagenet_utils import preprocess_input, decode_predictions
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2
+
+
+# Variables 
+# Change them if you are using custom model or pretrained model with saved weigths
+Model_json = ".json"
+Model_weigths = ".h5"
+
+
+# Declare a flask app
 app = Flask(__name__)
-model = pickle.load(open('model.pkl', 'rb'))
 
-@app.route('/')
-def home():
-    return render_template('land.html')
+def get_ImageClassifierModel():
+    model = MobileNetV2(weights='imagenet')
 
-@app.route('/software')
-def software():
-    return render_template('home.html')
+    # Loading the pretrained model
+    # model_json = open(Model_json, 'r')
+    # loaded_model_json = model_json.read()
+    # model_json.close()
+    # model = model_from_json(loaded_model_json)
+    # model.load_weights(Model_weigths)
 
-#To use the predict button in our web-app
-@app.route('/predict',methods=['POST'])
+    return model  
+    
+
+
+def model_predict(img, model):
+    '''
+    Prediction Function for model.
+    Arguments: 
+        img: is address to image
+        model : image classification model
+    '''
+    img = img.resize((224, 224))
+
+    # Preprocessing the image
+    x = image.img_to_array(img)
+    # x = np.true_divide(x, 255)
+    x = np.expand_dims(x, axis=0)
+
+    # Be careful how your trained model deals with the input
+    # otherwise, it won't make correct prediction!
+    x = preprocess_input(x, mode='tf')
+
+    preds = model.predict(x)
+    return preds
+
+
+@app.route('/', methods=['GET'])
+def index():
+    '''
+    Render the main page
+    '''
+    return render_template('index.html')
+
+
+@app.route('/predict', methods=['GET', 'POST'])
 def predict():
-    # this fetches data from the client side interface!
-    int_features = [float(x) for x in request.form.values()]
-    final_features = [np.array(int_features)]
-    # we need an array for preidcitions
-    # we load the array of values receved from user into our model
+    '''
+    predict function to predict the image
+    Api hits this function when someone clicks submit.
+    '''
+    if request.method == 'POST':
+        # Get the image from post request
+        img = base64_to_pil(request.json)
+        
+        # initialize model
+        model = get_ImageClassifierModel()
 
-    poly_reg = PolynomialFeatures(degree=2)
+        # Make prediction
+        preds = model_predict(img, model)
 
-    prediction = model.predict(poly_reg.fit_transform(final_features))
+        pred_proba = "{:.3f}".format(np.amax(preds))    # Max probability
+        pred_class = decode_predictions(preds, top=1)   # ImageNet Decode
+
+        result = str(pred_class[0][0][1])               # Convert to string
+        result = result.replace('_', ' ').capitalize()
+        
+        # Serialize the result, you can add additional fields
+        return jsonify(result=result, probability=pred_proba)
+    return None
 
 
-    if (prediction > 0.8):
-        output=" DIABETIC- PLAESE TAKE CARE OF YOUR ROUTINE AND MAKE LIFESTYLE CHANGES . Probability  of being diabetic is HIGH !"
-    else:
-        output=" NON-DIABETIC- Congratulations . Your Lifestyle is Brilliant. Stay healthy stay safe! "
-
-    return render_template('index.html', prediction_text='PRIDICTIONS => :{}'.format(output))
-
-if __name__ == "__main__":
-    app.run(debug=True)
+if __name__ == '__main__':
+    # app.run(port=5002)
+    app.run()

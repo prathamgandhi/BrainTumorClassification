@@ -14,17 +14,17 @@ from tensorflow.keras.preprocessing import image
 from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2
 
 
-# Variables 
+# Variables
 # Change them if you are using custom model or pretrained model with saved weigths
-Model_json = ".json"
-Model_weigths = ".h5"
+#Model_json = ".json"
+#Model_weigths = ".h5"
 
 
 # Declare a flask app
 app = Flask(__name__)
 
 def get_ImageClassifierModel():
-    model = MobileNetV2(weights='imagenet')
+    model = tf.keras.models.load_model('BrainTumorClassification');
 
     # Loading the pretrained model
     # model_json = open(Model_json, 'r')
@@ -33,19 +33,19 @@ def get_ImageClassifierModel():
     # model = model_from_json(loaded_model_json)
     # model.load_weights(Model_weigths)
 
-    return model  
-    
+    return model
+
 
 
 def model_predict(img, model):
     '''
     Prediction Function for model.
-    Arguments: 
+    Arguments:
         img: is address to image
         model : image classification model
     '''
     #300 300
-    img = img.resize((224, 224))
+    img = img.resize((300, 300))
 
     # Preprocessing the image
     x = image.img_to_array(img)
@@ -77,7 +77,7 @@ def predict():
     if request.method == 'POST':
         # Get the image from post request
         img = base64_to_pil(request.json)
-        
+
         # initialize model
         model = get_ImageClassifierModel()
 
@@ -85,13 +85,13 @@ def predict():
         preds = model_predict(img, model)
 
         pred_proba = "{:.3f}".format(np.amax(preds))    # Max probability
-        pred_class = decode_predictions(preds, top=1)   # ImageNet Decode
+        #pred_class = decode_predictions(preds, top=1)   # ImageNet Decode
 
-        result = str(pred_class[0][0][1])               # Convert to string
-        result = result.replace('_', ' ').capitalize()
-        
+        #result = str(pred_class[0][0][1])               # Convert to string
+        #result = result.replace('_', ' ').capitalize()
+
         # Serialize the result, you can add additional fields
-        return jsonify(result=result, probability=pred_proba)
+        return jsonify(result=pred_proba, probability=pred_proba)
     return None
 
 

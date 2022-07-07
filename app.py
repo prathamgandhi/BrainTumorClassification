@@ -44,6 +44,7 @@ def model_predict(img, model):
         img: is address to image
         model : image classification model
     '''
+    #300 300
     img = img.resize((224, 224))
 
     # Preprocessing the image
